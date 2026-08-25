@@ -13,7 +13,41 @@ class EnhancedThermostatCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    if (this._climateHistoryCard) this._climateHistoryCard.hass = hass;
+    if (this._dehumidifierHistoryCard) this._dehumidifierHistoryCard.hass = hass;
     this._render();
+    this._ensureHistoryCards();
+  }
+
+  async _ensureHistoryCards() {
+    if (this._historyCardsRequested) return;
+    if (this._config.show_history === false) return;
+    if (!window.loadCardHelpers) return;
+    this._historyCardsRequested = true;
+
+    const helpers = await window.loadCardHelpers();
+    const container = this.shadowRoot.querySelector(".history-section");
+    if (!container) return;
+
+    this._climateHistoryCard = helpers.createCardElement({
+      type: "history-graph",
+      show_names: false,
+      entities: [{ entity: this._config.entity }],
+      grid_options: { columns: 6, rows: 2 },
+    });
+    this._climateHistoryCard.hass = this._hass;
+    container.appendChild(this._climateHistoryCard);
+
+    if (this._config.dehumidifier_entity) {
+      this._dehumidifierHistoryCard = helpers.createCardElement({
+        type: "history-graph",
+        show_names: false,
+        entities: [{ entity: this._config.dehumidifier_entity }],
+        grid_options: { columns: 6, rows: 2 },
+      });
+      this._dehumidifierHistoryCard.hass = this._hass;
+      container.appendChild(this._dehumidifierHistoryCard);
+    }
   }
 
   getCardSize() {
@@ -21,6 +55,10 @@ class EnhancedThermostatCard extends HTMLElement {
     let size = 9;
     if (this._config && (this._config.door_entity || this._config.window_entity || this._config.humidity_entity || this._config.dehumidifier_entity)) {
       size += 4;
+    }
+    if (this._config && this._config.show_history !== false) {
+      size += 3;
+      if (this._config.dehumidifier_entity) size += 3;
     }
     return size;
   }
@@ -36,7 +74,7 @@ class EnhancedThermostatCard extends HTMLElement {
       name: "Climatisation",
     };
   }
-  
+
   _buildStaticDom() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -49,22 +87,25 @@ class EnhancedThermostatCard extends HTMLElement {
           box-sizing: border-box;
         }
         .header {
+          position: relative;
           display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
+          justify-content: center;
+          padding-right: 36px;
+          box-sizing: border-box;
           gap: 8px;
           font-size: 1.15rem;
         }
         .header .name {
-          flex: 1;
-          min-width: 0;
+          text-align: center;
           white-space: normal;
           word-break: break-word;
           line-height: 1.25;
           padding-top: 2px;
         }
         .header ha-icon-button {
-          flex-shrink: 0;
+          position: absolute;
+          top: 0;
+          right: 0;
           width: 32px;
           height: 32px;
           --mdc-icon-button-size: 32px;
@@ -135,12 +176,11 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .extra-row {
           display: flex;
-          flex-wrap: wrap;
+          flex-direction: column;
           gap: 8px;
           background: var(--secondary-background-color);
           border-radius: 12px;
           padding: 10px 14px;
-          justify-content: center;
         }
         .extra-item {
           display: flex;
@@ -150,9 +190,8 @@ class EnhancedThermostatCard extends HTMLElement {
           cursor: pointer;
           color: var(--secondary-text-color);
           font-size: 0.9rem;
-          flex: 1 1 auto;
-          min-width: 90px;
         }
+        .extra-item.hidden { visibility: hidden; }
         .extra-item ha-icon { color: var(--secondary-text-color); flex-shrink: 0; }
         .extra-item.active ha-icon { color: #e8c84a; }
         .modes {
@@ -173,6 +212,11 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .mode-btn ha-icon { flex-shrink: 0; }
         .mode-btn.selected { color: white; }
+        .history-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
       </style>
       <ha-card>
         <div class="header">
@@ -217,6 +261,7 @@ class EnhancedThermostatCard extends HTMLElement {
           </div>
         </div>
         <div class="modes"></div>
+        <div class="history-section"></div>
       </ha-card>
     `;
 
@@ -236,7 +281,7 @@ class EnhancedThermostatCard extends HTMLElement {
       this._fireMoreInfo(this._config.humidity_entity)
     );
     this.shadowRoot.querySelector(".dehumidifier-item").addEventListener("click", () =>
-      this._fireMoreInfo(this._config.dehumidifier_entity)
+      this._toggleDehumidifier()
     );
     this.shadowRoot.querySelector(".minus").addEventListener("click", () => this._setTemp(-this._step));
     this.shadowRoot.querySelector(".plus").addEventListener("click", () => this._setTemp(this._step));
@@ -250,14 +295,24 @@ class EnhancedThermostatCard extends HTMLElement {
     this.shadowRoot.dispatchEvent(event);
   }
 
+  _toggleDehumidifier() {
+    const entityId = this._config.dehumidifier_entity;
+    if (!entityId || !this._hass) return;
+    const domain = entityId.split(".")[0];
+    this._hass.callService(domain, "toggle", { entity_id: entityId });
+  }
+
   _setTemp(delta) {
     const stateObj = this._hass.states[this._config.entity];
     if (!stateObj) return;
     const current = stateObj.attributes.temperature;
     if (current === undefined) return;
+    const min = stateObj.attributes.min_temp ?? 7;
+    const max = stateObj.attributes.max_temp ?? 35;
+    const next = Math.min(max, Math.max(min, Math.round((current + delta) * 2) / 2));
     this._hass.callService("climate", "set_temperature", {
       entity_id: this._config.entity,
-      temperature: Math.round((current + delta) * 2) / 2,
+      temperature: next,
     });
   }
 
@@ -396,8 +451,8 @@ class EnhancedThermostatCard extends HTMLElement {
 
     const doorItem = root.querySelector(".door-item");
     const windowItem = root.querySelector(".window-item");
-    doorItem.style.display = doorState ? "flex" : "none";
-    windowItem.style.display = windowState ? "flex" : "none";
+    doorItem.classList.toggle("hidden", !doorState);
+    windowItem.classList.toggle("hidden", !windowState);
     doorItem.classList.toggle("active", !!doorOpen);
     windowItem.classList.toggle("active", !!windowOpen);
     root.querySelector(".door-label").textContent = doorOpen ? "Ouverte" : "Fermée";
@@ -406,17 +461,20 @@ class EnhancedThermostatCard extends HTMLElement {
     root.querySelector(".window-icon").setAttribute("icon", windowOpen ? "mdi:window-open" : "mdi:window-closed");
 
     const humidityItem = root.querySelector(".humidity-item");
-    humidityItem.style.display = humidityState ? "flex" : "none";
+    humidityItem.classList.toggle("hidden", !humidityState);
     root.querySelector(".humidity-label").textContent = humidityState ? `${humidityState.state}%` : "";
 
     const dehumidifierOn = dehumidifierState && ["on", "true"].includes(dehumidifierState.state);
     const dehumidifierItem = root.querySelector(".dehumidifier-item");
-    dehumidifierItem.style.display = dehumidifierState ? "flex" : "none";
+    dehumidifierItem.classList.toggle("hidden", !dehumidifierState);
     dehumidifierItem.classList.toggle("active", !!dehumidifierOn);
     root.querySelector(".dehumidifier-icon").setAttribute(
       "icon", dehumidifierOn ? "mdi:air-humidifier" : "mdi:air-humidifier-off"
     );
     root.querySelector(".dehumidifier-label").textContent = dehumidifierOn ? "Marche" : "Arrêt";
+
+    const anyExtra = !!(doorState || windowState || humidityState || dehumidifierState);
+    root.querySelector(".extra-row").style.display = anyExtra ? "flex" : "none";
 
     // Boutons de mode : chaud / froid / arrêt, dans cet ordre
     const modes = EnhancedThermostatCard._orderModes(stateObj.attributes.hvac_modes || []);
@@ -470,6 +528,7 @@ class EnhancedThermostatCardEditor extends HTMLElement {
       { name: "humidity_entity", selector: { entity: { domain: "sensor" } } },
       { name: "dehumidifier_entity", selector: { entity: { domain: ["switch", "humidifier"] } } },
       { name: "step", selector: { number: { min: 0.5, max: 5, step: 0.5, mode: "box" } } },
+      { name: "show_history", selector: { boolean: {} } },
     ];
   }
 
@@ -499,6 +558,7 @@ class EnhancedThermostatCardEditor extends HTMLElement {
         humidity_entity: "Entité humidité",
         dehumidifier_entity: "Entité déshumidificateur",
         step: "Pas de température (°C)",
+        show_history: "Afficher les graphiques d'historique",
       };
       return labels[schema.name] || schema.name;
     };
