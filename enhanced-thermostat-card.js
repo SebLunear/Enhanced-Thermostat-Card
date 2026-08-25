@@ -48,9 +48,15 @@ class EnhancedThermostatCard extends HTMLElement {
           justify-content: center;
           font-size: 1.1rem;
           min-height: 32px;
+          padding: 0 36px;
+          box-sizing: border-box;
         }
         .header .name {
           text-align: center;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .header ha-icon-button {
           position: absolute;
@@ -64,13 +70,17 @@ class EnhancedThermostatCard extends HTMLElement {
         .dial-wrap {
           display: flex;
           justify-content: center;
+          padding: 0 8px;
+          box-sizing: border-box;
         }
         .dial {
           position: relative;
-          width: 220px;
-          height: 220px;
+          width: 100%;
+          max-width: 220px;
+          aspect-ratio: 1 / 1;
+          margin: 0 auto;
         }
-        .dial svg { width: 100%; height: 100%; transform: rotate(180deg); }
+        .dial svg { width: 100%; height: 100%; transform: rotate(0deg); }
         .dial-bg { fill: none; stroke: var(--disabled-text-color); opacity: 0.25; stroke-width: 12; stroke-linecap: round; }
         .dial-fg { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke 0.3s ease; }
         .dial-center {
@@ -151,11 +161,11 @@ class EnhancedThermostatCard extends HTMLElement {
         </div>
         <div class="extra-row">
           <div class="extra-item door-item">
-            <ha-icon icon="mdi:door"></ha-icon>
+            <ha-icon class="door-icon" icon="mdi:door-closed"></ha-icon>
             <span class="door-label"></span>
           </div>
           <div class="extra-item window-item">
-            <ha-icon icon="mdi:window-open-variant"></ha-icon>
+            <ha-icon class="window-icon" icon="mdi:window-closed"></ha-icon>
             <span class="window-label"></span>
           </div>
           <div class="extra-item humidity-item">
@@ -284,6 +294,8 @@ class EnhancedThermostatCard extends HTMLElement {
     windowItem.classList.toggle("active", !!windowOpen);
     root.querySelector(".door-label").textContent = doorOpen ? "Ouverte" : "Fermée";
     root.querySelector(".window-label").textContent = windowOpen ? "Ouverte" : "Fermée";
+    root.querySelector(".door-icon").setAttribute("icon", doorOpen ? "mdi:door-open" : "mdi:door-closed");
+    root.querySelector(".window-icon").setAttribute("icon", windowOpen ? "mdi:window-open" : "mdi:window-closed");
 
     const humidityItem = root.querySelector(".humidity-item");
     humidityItem.style.display = humidityState ? "flex" : "none";
