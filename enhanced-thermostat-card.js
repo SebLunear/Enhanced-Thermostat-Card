@@ -49,38 +49,37 @@ class EnhancedThermostatCard extends HTMLElement {
           box-sizing: border-box;
         }
         .header {
-          position: relative;
-          display: grid;
-          grid-template-columns: 28px 1fr 28px;
+          display: flex;
           align-items: center;
-          column-gap: 4px;
-          font-size: clamp(0.85rem, 5.5cqw, 1.1rem);
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 1.2rem;
           min-height: 32px;
         }
         .header .name {
-          grid-column: 2;
-          text-align: center;
+          flex: 1;
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .header ha-icon-button {
-          grid-column: 3;
-          justify-self: end;
-          --mdc-icon-button-size: 28px;
+          flex-shrink: 0;
+          --mdc-icon-button-size: 32px;
           color: var(--secondary-text-color);
           cursor: pointer;
         }
         .dial-wrap {
           display: flex;
           justify-content: center;
+          margin: 0 -10px;
           box-sizing: border-box;
         }
         .dial {
           container-type: inline-size;
           position: relative;
           width: 100%;
-          max-width: 320px;
+          max-width: 400px;
           aspect-ratio: 1 / 1;
           margin: 0 auto;
           cursor: pointer;
@@ -175,7 +174,6 @@ class EnhancedThermostatCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="header">
-          <span class="header-spacer"></span>
           <span class="name"></span>
           <ha-icon-button class="more-info">
             <ha-icon icon="mdi:dots-vertical"></ha-icon>
