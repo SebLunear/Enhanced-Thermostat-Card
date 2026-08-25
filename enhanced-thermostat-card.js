@@ -19,7 +19,7 @@ class EnhancedThermostatCard extends HTMLElement {
   getCardSize() {
     // Base : header + arc + boutons +/- + boutons de mode + paddings
     let size = 9;
-    if (this._config && (this._config.door_entity || this._config.window_entity || this._config.humidity_entity)) {
+    if (this._config && (this._config.door_entity || this._config.window_entity || this._config.humidity_entity || this._config.dehumidifier_entity)) {
       size += 4;
     }
     return size;
@@ -50,21 +50,23 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .header {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           gap: 8px;
-          font-size: 1.2rem;
-          min-height: 32px;
+          font-size: 1.15rem;
         }
         .header .name {
           flex: 1;
           min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          white-space: normal;
+          word-break: break-word;
+          line-height: 1.25;
+          padding-top: 2px;
         }
         .header ha-icon-button {
           flex-shrink: 0;
+          width: 32px;
+          height: 32px;
           --mdc-icon-button-size: 32px;
           color: var(--secondary-text-color);
           cursor: pointer;
@@ -72,7 +74,7 @@ class EnhancedThermostatCard extends HTMLElement {
         .dial-wrap {
           display: flex;
           justify-content: center;
-          margin: 0 -10px;
+          margin: -8px -16px;
           box-sizing: border-box;
         }
         .dial {
@@ -120,7 +122,7 @@ class EnhancedThermostatCard extends HTMLElement {
           display: flex;
           justify-content: center;
           gap: 16px;
-          margin-top: -8px;
+          margin-top: -16px;
         }
         .dial-controls button {
           width: 48px; height: 48px; border-radius: 50%;
@@ -170,7 +172,7 @@ class EnhancedThermostatCard extends HTMLElement {
           min-width: 0;
         }
         .mode-btn ha-icon { flex-shrink: 0; }
-        .mode-btn.selected { background: var(--primary-color); color: white; }
+        .mode-btn.selected { color: white; }
       </style>
       <ha-card>
         <div class="header">
@@ -209,6 +211,10 @@ class EnhancedThermostatCard extends HTMLElement {
             <ha-icon icon="mdi:water-percent"></ha-icon>
             <span class="humidity-label"></span>
           </div>
+          <div class="extra-item dehumidifier-item">
+            <ha-icon class="dehumidifier-icon" icon="mdi:air-humidifier-off"></ha-icon>
+            <span class="dehumidifier-label"></span>
+          </div>
         </div>
         <div class="modes"></div>
       </ha-card>
@@ -228,6 +234,9 @@ class EnhancedThermostatCard extends HTMLElement {
     );
     this.shadowRoot.querySelector(".humidity-item").addEventListener("click", () =>
       this._fireMoreInfo(this._config.humidity_entity)
+    );
+    this.shadowRoot.querySelector(".dehumidifier-item").addEventListener("click", () =>
+      this._fireMoreInfo(this._config.dehumidifier_entity)
     );
     this.shadowRoot.querySelector(".minus").addEventListener("click", () => this._setTemp(-this._step));
     this.shadowRoot.querySelector(".plus").addEventListener("click", () => this._setTemp(this._step));
@@ -299,14 +308,14 @@ class EnhancedThermostatCard extends HTMLElement {
 
   static _modeMeta(mode) {
     const map = {
-      heat: { icon: "mdi:fire", color: "#ff8a3d" },
-      cool: { icon: "mdi:snowflake", color: "#4aa8ff" },
-      off: { icon: "mdi:power", color: "var(--secondary-text-color)" },
-      auto: { icon: "mdi:autorenew", color: "#4aa8ff" },
-      dry: { icon: "mdi:water-percent", color: "#4aa8ff" },
-      fan_only: { icon: "mdi:fan", color: "#4aa8ff" },
+      heat: { icon: "mdi:fire", color: "#e5484d", selectedBg: "#e5484d", selectedFg: "#ffffff" },
+      cool: { icon: "mdi:snowflake", color: "#4aa8ff", selectedBg: "#4aa8ff", selectedFg: "#ffffff" },
+      off: { icon: "mdi:power", color: "var(--secondary-text-color)", selectedBg: "#d4d7dc", selectedFg: "#20232a" },
+      auto: { icon: "mdi:autorenew", color: "#4aa8ff", selectedBg: "#4aa8ff", selectedFg: "#ffffff" },
+      dry: { icon: "mdi:water-percent", color: "#4aa8ff", selectedBg: "#4aa8ff", selectedFg: "#ffffff" },
+      fan_only: { icon: "mdi:fan", color: "#4aa8ff", selectedBg: "#4aa8ff", selectedFg: "#ffffff" },
     };
-    return map[mode] || { icon: "mdi:help", color: "var(--secondary-text-color)" };
+    return map[mode] || { icon: "mdi:help", color: "var(--secondary-text-color)", selectedBg: "var(--primary-color)", selectedFg: "#ffffff" };
   }
 
   // Ordre d'affichage souhaité : chaud, froid, arrêt, puis le reste
@@ -380,6 +389,7 @@ class EnhancedThermostatCard extends HTMLElement {
     const doorState = this._config.door_entity ? this._hass.states[this._config.door_entity] : null;
     const windowState = this._config.window_entity ? this._hass.states[this._config.window_entity] : null;
     const humidityState = this._config.humidity_entity ? this._hass.states[this._config.humidity_entity] : null;
+    const dehumidifierState = this._config.dehumidifier_entity ? this._hass.states[this._config.dehumidifier_entity] : null;
 
     const doorOpen = doorState && ["on", "open"].includes(doorState.state);
     const windowOpen = windowState && ["on", "open"].includes(windowState.state);
@@ -399,6 +409,15 @@ class EnhancedThermostatCard extends HTMLElement {
     humidityItem.style.display = humidityState ? "flex" : "none";
     root.querySelector(".humidity-label").textContent = humidityState ? `${humidityState.state}%` : "";
 
+    const dehumidifierOn = dehumidifierState && ["on", "true"].includes(dehumidifierState.state);
+    const dehumidifierItem = root.querySelector(".dehumidifier-item");
+    dehumidifierItem.style.display = dehumidifierState ? "flex" : "none";
+    dehumidifierItem.classList.toggle("active", !!dehumidifierOn);
+    root.querySelector(".dehumidifier-icon").setAttribute(
+      "icon", dehumidifierOn ? "mdi:air-humidifier" : "mdi:air-humidifier-off"
+    );
+    root.querySelector(".dehumidifier-label").textContent = dehumidifierOn ? "Marche" : "Arrêt";
+
     // Boutons de mode : chaud / froid / arrêt, dans cet ordre
     const modes = EnhancedThermostatCard._orderModes(stateObj.attributes.hvac_modes || []);
     const modesEl = root.querySelector(".modes");
@@ -406,7 +425,12 @@ class EnhancedThermostatCard extends HTMLElement {
     modes.forEach((mode) => {
       const m = EnhancedThermostatCard._modeMeta(mode);
       const btn = document.createElement("div");
-      btn.className = "mode-btn" + (mode === hvacMode ? " selected" : "");
+      const isSelected = mode === hvacMode;
+      btn.className = "mode-btn" + (isSelected ? " selected" : "");
+      if (isSelected) {
+        btn.style.background = m.selectedBg;
+        btn.style.color = m.selectedFg;
+      }
       btn.innerHTML = `<ha-icon icon="${m.icon}"></ha-icon>`;
       btn.addEventListener("click", () => {
         this._hass.callService("climate", "set_hvac_mode", {
@@ -444,6 +468,7 @@ class EnhancedThermostatCardEditor extends HTMLElement {
       { name: "door_entity", selector: { entity: { domain: "binary_sensor" } } },
       { name: "window_entity", selector: { entity: { domain: "binary_sensor" } } },
       { name: "humidity_entity", selector: { entity: { domain: "sensor" } } },
+      { name: "dehumidifier_entity", selector: { entity: { domain: ["switch", "humidifier"] } } },
       { name: "step", selector: { number: { min: 0.5, max: 5, step: 0.5, mode: "box" } } },
     ];
   }
@@ -472,6 +497,7 @@ class EnhancedThermostatCardEditor extends HTMLElement {
         door_entity: "Entité porte",
         window_entity: "Entité fenêtre",
         humidity_entity: "Entité humidité",
+        dehumidifier_entity: "Entité déshumidificateur",
         step: "Pas de température (°C)",
       };
       return labels[schema.name] || schema.name;
