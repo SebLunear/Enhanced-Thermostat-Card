@@ -20,6 +20,18 @@ class EnhancedThermostatCard extends HTMLElement {
     return 4;
   }
 
+  static getConfigElement() {
+    return document.createElement("enhanced-thermostat-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    const climateEntities = hass ? Object.keys(hass.states).filter((e) => e.startsWith("climate.")) : [];
+    return {
+      entity: climateEntities[0] || "",
+      name: "Climatisation",
+    };
+  }
+
   _buildStaticDom() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -30,12 +42,21 @@ class EnhancedThermostatCard extends HTMLElement {
           gap: 16px;
         }
         .header {
+          position: relative;
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          justify-content: center;
           font-size: 1.1rem;
+          min-height: 32px;
+        }
+        .header .name {
+          text-align: center;
         }
         .header ha-icon-button {
+          position: absolute;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
           --mdc-icon-button-size: 32px;
           color: var(--secondary-text-color);
           cursor: pointer;
@@ -49,23 +70,33 @@ class EnhancedThermostatCard extends HTMLElement {
           width: 220px;
           height: 220px;
         }
-        .dial svg { width: 100%; height: 100%; transform: rotate(135deg); }
+        .dial svg { width: 100%; height: 100%; transform: rotate(180deg); }
         .dial-bg { fill: none; stroke: var(--disabled-text-color); opacity: 0.25; stroke-width: 12; stroke-linecap: round; }
         .dial-fg { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke 0.3s ease; }
         .dial-center {
           position: absolute; inset: 0;
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          gap: 4px;
+          gap: 2px;
         }
-        .dial-state { color: var(--secondary-text-color); font-size: 0.95rem; }
-        .dial-temp-row { display: flex; align-items: center; gap: 10px; }
-        .dial-temp-row button {
-          width: 30px; height: 30px; border-radius: 50%; border: none;
-          background: var(--secondary-background-color);
-          color: var(--primary-text-color); font-size: 1rem; cursor: pointer;
+        .dial-state { color: var(--secondary-text-color); font-size: 0.95rem; margin-bottom: 4px; }
+        .dial-current { font-size: 2.6rem; font-weight: 400; color: var(--primary-text-color); position: relative; line-height: 1; }
+        .dial-current sup { font-size: 1rem; position: relative; top: -1.4rem; margin-left: 2px; }
+        .dial-target { font-size: 0.9rem; font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+        .dial-target ha-icon { width: 16px; height: 16px; }
+        .dial-controls {
+          display: flex;
+          justify-content: center;
+          gap: 16px;
+          margin-top: -8px;
         }
-        .dial-temp { font-size: 2.6rem; font-weight: 400; color: var(--primary-text-color); position: relative; }
-        .dial-temp sup { font-size: 1rem; position: absolute; top: 6px; }
+        .dial-controls button {
+          width: 48px; height: 48px; border-radius: 50%;
+          border: 2px solid var(--divider-color);
+          background: transparent;
+          color: var(--primary-text-color);
+          font-size: 1.3rem;
+          cursor: pointer;
+        }
         .extra-row {
           display: flex;
           gap: 8px;
@@ -109,13 +140,14 @@ class EnhancedThermostatCard extends HTMLElement {
             </svg>
             <div class="dial-center">
               <div class="dial-state"></div>
-              <div class="dial-temp-row">
-                <button class="minus">−</button>
-                <div class="dial-temp"></div>
-                <button class="plus">+</button>
-              </div>
+              <div class="dial-current"><span class="dial-current-value"></span><sup>°C</sup></div>
+              <div class="dial-target"></div>
             </div>
           </div>
+        </div>
+        <div class="dial-controls">
+          <button class="minus">−</button>
+          <button class="plus">+</button>
         </div>
         <div class="extra-row">
           <div class="extra-item door-item">
@@ -182,6 +214,19 @@ class EnhancedThermostatCard extends HTMLElement {
     return map[mode] || { icon: "mdi:help", color: "var(--secondary-text-color)" };
   }
 
+  // Ordre d'affichage souhaité : chaud, froid, arrêt, puis le reste
+  static _orderModes(modes) {
+    const priority = ["heat", "cool", "off"];
+    const known = priority.filter((m) => modes.includes(m));
+    const rest = modes.filter((m) => !priority.includes(m));
+    return [...known, ...rest];
+  }
+
+  _fmt(value, decimals = 1) {
+    if (value === undefined || value === null) return "--";
+    return Number(value).toFixed(decimals).replace(".", ",");
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
     const root = this.shadowRoot;
@@ -196,25 +241,29 @@ class EnhancedThermostatCard extends HTMLElement {
 
     const hvacMode = stateObj.state;
     const hvacAction = stateObj.attributes.hvac_action;
-    const temp = stateObj.attributes.temperature;
+    const targetTemp = stateObj.attributes.temperature;
+    const currentTemp = stateObj.attributes.current_temperature;
     const stateLabel = hvacAction
       ? this._hass.formatEntityAttributeValue
         ? this._hass.formatEntityAttributeValue(stateObj, "hvac_action")
         : hvacAction
       : (hvacMode === "off" ? "Inactif" : hvacMode);
 
-    root.querySelector(".dial-state").textContent = stateLabel;
-    root.querySelector(".dial-temp").innerHTML =
-      temp !== undefined ? `${temp}<sup>°C</sup>` : "--";
-
     const meta = EnhancedThermostatCard._modeMeta(hvacMode);
+
+    root.querySelector(".dial-state").textContent = stateLabel;
+    root.querySelector(".dial-current-value").textContent = this._fmt(currentTemp);
+    const targetEl = root.querySelector(".dial-target");
+    targetEl.textContent = targetTemp !== undefined ? `${this._fmt(targetTemp)} °C` : "";
+    targetEl.style.color = hvacMode === "off" ? "var(--secondary-text-color)" : meta.color;
+
     const fg = root.querySelector(".dial-fg");
     fg.style.stroke = hvacMode === "off" ? "var(--disabled-text-color)" : meta.color;
 
-    // Remplissage de l'arc en fonction de la position de temp entre min_temp et max_temp
+    // Remplissage de l'arc en fonction de la position de la consigne entre min_temp et max_temp
     const min = stateObj.attributes.min_temp ?? 7;
     const max = stateObj.attributes.max_temp ?? 35;
-    const ratio = temp !== undefined ? Math.min(1, Math.max(0, (temp - min) / (max - min))) : 0;
+    const ratio = targetTemp !== undefined ? Math.min(1, Math.max(0, (targetTemp - min) / (max - min))) : 0;
     const totalLength = fg.getTotalLength ? fg.getTotalLength() : 340;
     fg.style.strokeDasharray = `${totalLength}`;
     fg.style.strokeDashoffset = `${totalLength * (1 - ratio)}`;
@@ -240,8 +289,8 @@ class EnhancedThermostatCard extends HTMLElement {
     humidityItem.style.display = humidityState ? "flex" : "none";
     root.querySelector(".humidity-label").textContent = humidityState ? `${humidityState.state}%` : "";
 
-    // Boutons de mode
-    const modes = stateObj.attributes.hvac_modes || [];
+    // Boutons de mode : chaud / froid / arrêt, dans cet ordre
+    const modes = EnhancedThermostatCard._orderModes(stateObj.attributes.hvac_modes || []);
     const modesEl = root.querySelector(".modes");
     modesEl.innerHTML = "";
     modes.forEach((mode) => {
@@ -261,6 +310,66 @@ class EnhancedThermostatCard extends HTMLElement {
 }
 
 customElements.define("enhanced-thermostat-card", EnhancedThermostatCard);
+
+// ---- Éditeur visuel (formulaire dans l'éditeur de carte HA) ----
+class EnhancedThermostatCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _schema() {
+    return [
+      { name: "entity", required: true, selector: { entity: { domain: "climate" } } },
+      { name: "name", selector: { text: {} } },
+      { name: "door_entity", selector: { entity: { domain: "binary_sensor" } } },
+      { name: "window_entity", selector: { entity: { domain: "binary_sensor" } } },
+      { name: "humidity_entity", selector: { entity: { domain: "sensor" } } },
+      { name: "step", selector: { number: { min: 0.5, max: 5, step: 0.5, mode: "box" } } },
+    ];
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        const event = new CustomEvent("config-changed", {
+          bubbles: true, composed: true,
+          detail: { config: ev.detail.value },
+        });
+        this.dispatchEvent(event);
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.data = this._config;
+    this._form.schema = this._schema();
+    this._form.computeLabel = (schema) => {
+      const labels = {
+        entity: "Entité climatisation",
+        name: "Nom",
+        door_entity: "Entité porte",
+        window_entity: "Entité fenêtre",
+        humidity_entity: "Entité humidité",
+        step: "Pas de température (°C)",
+      };
+      return labels[schema.name] || schema.name;
+    };
+  }
+}
+
+customElements.define("enhanced-thermostat-card-editor", EnhancedThermostatCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
