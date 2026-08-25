@@ -1,4 +1,4 @@
-class ClimatePlusCard extends HTMLElement {
+class EnhancedThermostatCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) {
       throw new Error("Il faut définir 'entity' (climate.xxx)");
@@ -207,7 +207,7 @@ class ClimatePlusCard extends HTMLElement {
     root.querySelector(".dial-temp").innerHTML =
       temp !== undefined ? `${temp}<sup>°C</sup>` : "--";
 
-    const meta = ClimatePlusCard._modeMeta(hvacMode);
+    const meta = EnhancedThermostatCard._modeMeta(hvacMode);
     const fg = root.querySelector(".dial-fg");
     fg.style.stroke = hvacMode === "off" ? "var(--disabled-text-color)" : meta.color;
 
@@ -245,7 +245,7 @@ class ClimatePlusCard extends HTMLElement {
     const modesEl = root.querySelector(".modes");
     modesEl.innerHTML = "";
     modes.forEach((mode) => {
-      const m = ClimatePlusCard._modeMeta(mode);
+      const m = EnhancedThermostatCard._modeMeta(mode);
       const btn = document.createElement("div");
       btn.className = "mode-btn" + (mode === hvacMode ? " selected" : "");
       btn.innerHTML = `<ha-icon icon="${m.icon}"></ha-icon>`;
@@ -260,11 +260,11 @@ class ClimatePlusCard extends HTMLElement {
   }
 }
 
-customElements.define("climate-plus-card", ClimatePlusCard);
+customElements.define("enhanced-thermostat-card", EnhancedThermostatCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "climate-plus-card",
-  name: "Climate Plus Card",
+  type: "enhanced-thermostat-card",
+  name: "Enhanced Thermostat Card",
   description: "Carte thermostat avec porte, fenêtre et humidité",
 });
