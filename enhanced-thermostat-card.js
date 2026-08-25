@@ -36,34 +36,33 @@ class EnhancedThermostatCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
+          container-type: inline-size;
           padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 16px;
+          box-sizing: border-box;
         }
         .header {
           position: relative;
-          display: flex;
+          display: grid;
+          grid-template-columns: 28px 1fr 28px;
           align-items: center;
-          justify-content: center;
-          font-size: 1.1rem;
+          column-gap: 4px;
+          font-size: clamp(0.85rem, 5.5cqw, 1.1rem);
           min-height: 32px;
-          padding: 0 36px;
-          box-sizing: border-box;
         }
         .header .name {
+          grid-column: 2;
           text-align: center;
-          max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .header ha-icon-button {
-          position: absolute;
-          right: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          --mdc-icon-button-size: 32px;
+          grid-column: 3;
+          justify-self: end;
+          --mdc-icon-button-size: 28px;
           color: var(--secondary-text-color);
           cursor: pointer;
         }
@@ -74,6 +73,7 @@ class EnhancedThermostatCard extends HTMLElement {
           box-sizing: border-box;
         }
         .dial {
+          container-type: inline-size;
           position: relative;
           width: 100%;
           max-width: 220px;
@@ -87,12 +87,14 @@ class EnhancedThermostatCard extends HTMLElement {
           position: absolute; inset: 0;
           display: flex; flex-direction: column; align-items: center; justify-content: center;
           gap: 2px;
+          padding: 0 20cqw;
+          box-sizing: border-box;
         }
-        .dial-state { color: var(--secondary-text-color); font-size: 0.95rem; margin-bottom: 4px; }
-        .dial-current { font-size: 2.6rem; font-weight: 400; color: var(--primary-text-color); position: relative; line-height: 1; }
-        .dial-current sup { font-size: 1rem; position: relative; top: -1.4rem; margin-left: 2px; }
-        .dial-target { font-size: 0.9rem; font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
-        .dial-target ha-icon { width: 16px; height: 16px; }
+        .dial-state { color: var(--secondary-text-color); font-size: clamp(0.65rem, 8cqw, 0.95rem); margin-bottom: 4px; }
+        .dial-current { font-size: clamp(1.3rem, 22cqw, 2.6rem); font-weight: 400; color: var(--primary-text-color); position: relative; line-height: 1; }
+        .dial-current sup { font-size: 0.4em; position: relative; top: -0.9em; margin-left: 2px; }
+        .dial-target { font-size: clamp(0.6rem, 7cqw, 0.9rem); font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+        .dial-target ha-icon { width: 1em; height: 1em; }
         .dial-controls {
           display: flex;
           justify-content: center;
@@ -106,21 +108,33 @@ class EnhancedThermostatCard extends HTMLElement {
           color: var(--primary-text-color);
           font-size: 1.3rem;
           cursor: pointer;
+          flex-shrink: 0;
         }
         .extra-row {
           display: flex;
+          flex-wrap: wrap;
           gap: 8px;
           background: var(--secondary-background-color);
           border-radius: 12px;
           padding: 10px 14px;
-          justify-content: space-around;
+          justify-content: center;
         }
-        .extra-item { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--secondary-text-color); font-size: 0.9rem; }
-        .extra-item ha-icon { color: var(--secondary-text-color); }
+        .extra-item {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          color: var(--secondary-text-color);
+          font-size: 0.9rem;
+          flex: 1 1 auto;
+          min-width: 90px;
+        }
+        .extra-item ha-icon { color: var(--secondary-text-color); flex-shrink: 0; }
         .extra-item.active ha-icon { color: #e8c84a; }
         .modes {
           display: flex;
-          gap: 8px;
+          gap: clamp(4px, 2cqw, 8px);
           background: var(--secondary-background-color);
           border-radius: 16px;
           padding: 6px;
@@ -128,15 +142,18 @@ class EnhancedThermostatCard extends HTMLElement {
         .mode-btn {
           flex: 1;
           display: flex; align-items: center; justify-content: center;
-          padding: 10px;
+          padding: clamp(6px, 3cqw, 10px);
           border-radius: 12px;
           cursor: pointer;
           color: var(--secondary-text-color);
+          min-width: 0;
         }
+        .mode-btn ha-icon { flex-shrink: 0; }
         .mode-btn.selected { background: var(--primary-color); color: white; }
       </style>
       <ha-card>
         <div class="header">
+          <span class="header-spacer"></span>
           <span class="name"></span>
           <ha-icon-button class="more-info">
             <ha-icon icon="mdi:dots-vertical"></ha-icon>
@@ -264,8 +281,11 @@ class EnhancedThermostatCard extends HTMLElement {
     root.querySelector(".dial-state").textContent = stateLabel;
     root.querySelector(".dial-current-value").textContent = this._fmt(currentTemp);
     const targetEl = root.querySelector(".dial-target");
+    const isOff = hvacMode === "off";
+    targetEl.style.display = isOff ? "none" : "flex";
     targetEl.textContent = targetTemp !== undefined ? `${this._fmt(targetTemp)} °C` : "";
-    targetEl.style.color = hvacMode === "off" ? "var(--secondary-text-color)" : meta.color;
+    targetEl.style.color = isOff ? "var(--secondary-text-color)" : meta.color;
+    root.querySelector(".dial-controls").style.display = isOff ? "none" : "flex";
 
     const fg = root.querySelector(".dial-fg");
     fg.style.stroke = hvacMode === "off" ? "var(--disabled-text-color)" : meta.color;
