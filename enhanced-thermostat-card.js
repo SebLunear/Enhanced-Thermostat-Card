@@ -74,14 +74,13 @@ class EnhancedThermostatCard extends HTMLElement {
         .dial-wrap {
           display: flex;
           justify-content: center;
-          padding: 0 8px;
           box-sizing: border-box;
         }
         .dial {
           container-type: inline-size;
           position: relative;
           width: 100%;
-          max-width: 260px;
+          max-width: 320px;
           aspect-ratio: 1 / 1;
           margin: 0 auto;
           cursor: pointer;
@@ -93,12 +92,29 @@ class EnhancedThermostatCard extends HTMLElement {
           position: absolute; inset: 0;
           display: flex; flex-direction: column; align-items: center; justify-content: center;
           gap: 2px;
-          padding: 0 20cqw;
+          padding: 0 15cqw;
           box-sizing: border-box;
         }
         .dial-state { color: var(--secondary-text-color); font-size: clamp(0.65rem, 8cqw, 0.95rem); margin-bottom: 4px; }
-        .dial-current { font-size: clamp(1.3rem, 22cqw, 2.6rem); font-weight: 400; color: var(--primary-text-color); position: relative; line-height: 1; }
-        .dial-current sup { font-size: 0.4em; position: relative; top: -0.9em; margin-left: 2px; }
+        .dial-current {
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          font-size: clamp(1.3rem, 22cqw, 2.6rem);
+          font-weight: 400;
+          color: var(--primary-text-color);
+          line-height: 1;
+        }
+        .dial-current-int { font-size: 1em; }
+        .dial-current-suffix {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          margin-left: 2px;
+          line-height: 1;
+        }
+        .dial-current-suffix .unit { font-size: 0.36em; }
+        .dial-current-suffix .dial-current-dec { font-size: 0.5em; margin-top: 0.1em; }
         .dial-target { font-size: clamp(0.6rem, 7cqw, 0.9rem); font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
         .dial-target ha-icon { width: 1em; height: 1em; }
         .dial-controls {
@@ -173,7 +189,7 @@ class EnhancedThermostatCard extends HTMLElement {
             </svg>
             <div class="dial-center">
               <div class="dial-state"></div>
-              <div class="dial-current"><span class="dial-current-value"></span><sup>°C</sup></div>
+              <div class="dial-current"><span class="dial-current-int"></span><span class="dial-current-suffix"><span class="unit">°C</span><span class="dial-current-dec"></span></span></div>
               <div class="dial-target"></div>
             </div>
           </div>
@@ -308,6 +324,14 @@ class EnhancedThermostatCard extends HTMLElement {
     return Number(value).toFixed(decimals).replace(".", ",");
   }
 
+  // Sépare la partie entière et la décimale pour un affichage à deux tailles,
+  // comme sur la carte thermostat native.
+  _fmtParts(value, decimals = 1) {
+    if (value === undefined || value === null) return { int: "--", dec: "" };
+    const [int, dec] = Number(value).toFixed(decimals).split(".");
+    return { int, dec: dec ? `,${dec}` : "" };
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
     const root = this.shadowRoot;
@@ -333,7 +357,9 @@ class EnhancedThermostatCard extends HTMLElement {
     const meta = EnhancedThermostatCard._modeMeta(hvacMode);
 
     root.querySelector(".dial-state").textContent = stateLabel;
-    root.querySelector(".dial-current-value").textContent = this._fmt(currentTemp);
+    const currentParts = this._fmtParts(currentTemp);
+    root.querySelector(".dial-current-int").textContent = currentParts.int;
+    root.querySelector(".dial-current-dec").textContent = currentParts.dec;
     const targetEl = root.querySelector(".dial-target");
     const isOff = hvacMode === "off";
     targetEl.style.display = isOff ? "none" : "flex";
