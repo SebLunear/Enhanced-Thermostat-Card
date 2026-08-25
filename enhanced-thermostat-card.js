@@ -36,7 +36,7 @@ class EnhancedThermostatCard extends HTMLElement {
       name: "Climatisation",
     };
   }
-
+  
   _buildStaticDom() {
     this.shadowRoot.innerHTML = `
       <style>
