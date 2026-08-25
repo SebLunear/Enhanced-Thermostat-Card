@@ -17,7 +17,12 @@ class EnhancedThermostatCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 4;
+    // Base : header + arc + boutons +/- + boutons de mode + paddings
+    let size = 9;
+    if (this._config && (this._config.door_entity || this._config.window_entity || this._config.humidity_entity)) {
+      size += 4;
+    }
+    return size;
   }
 
   static getConfigElement() {
@@ -76,9 +81,10 @@ class EnhancedThermostatCard extends HTMLElement {
           container-type: inline-size;
           position: relative;
           width: 100%;
-          max-width: 220px;
+          max-width: 260px;
           aspect-ratio: 1 / 1;
           margin: 0 auto;
+          cursor: pointer;
         }
         .dial svg { width: 100%; height: 100%; transform: rotate(0deg); }
         .dial-bg { fill: none; stroke: var(--disabled-text-color); opacity: 0.25; stroke-width: 12; stroke-linecap: round; }
@@ -197,6 +203,9 @@ class EnhancedThermostatCard extends HTMLElement {
     this.shadowRoot.querySelector(".more-info").addEventListener("click", () =>
       this._fireMoreInfo(this._config.entity)
     );
+    this.shadowRoot.querySelector(".dial").addEventListener("click", (evt) =>
+      this._handleDialClick(evt)
+    );
     this.shadowRoot.querySelector(".door-item").addEventListener("click", () =>
       this._fireMoreInfo(this._config.door_entity)
     );
@@ -226,6 +235,51 @@ class EnhancedThermostatCard extends HTMLElement {
     this._hass.callService("climate", "set_temperature", {
       entity_id: this._config.entity,
       temperature: Math.round((current + delta) * 2) / 2,
+    });
+  }
+
+  // Clic sur l'anneau : convertit la position du clic en température,
+  // comme sur la carte thermostat native (même effet que + / -).
+  _handleDialClick(evt) {
+    const stateObj = this._hass && this._hass.states[this._config.entity];
+    if (!stateObj || stateObj.state === "off") return;
+
+    const dial = this.shadowRoot.querySelector(".dial");
+    const rect = dial.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = evt.clientX - cx;
+    const dy = evt.clientY - cy;
+
+    // Ignore les clics trop proches du centre (zone d'affichage du texte),
+    // seule la couronne visible doit réagir.
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < rect.width * 0.28) return;
+
+    // L'arc va de 135° à 405° (135° + 270°) en sens horaire, dans le
+    // référentiel écran (y vers le bas). Le vide de 90° est en bas.
+    let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    if (angle < 0) angle += 360;
+    let rel = angle - 135;
+    if (rel < 0) rel += 360;
+
+    let ratio;
+    if (rel > 270) {
+      // Clic dans la zone du vide : on rattache au bord le plus proche.
+      ratio = rel - 270 < 360 - rel ? 1 : 0;
+    } else {
+      ratio = rel / 270;
+    }
+
+    const min = stateObj.attributes.min_temp ?? 7;
+    const max = stateObj.attributes.max_temp ?? 35;
+    const raw = min + ratio * (max - min);
+    const stepped = Math.round(raw / this._step) * this._step;
+    const clamped = Math.min(max, Math.max(min, stepped));
+
+    this._hass.callService("climate", "set_temperature", {
+      entity_id: this._config.entity,
+      temperature: clamped,
     });
   }
 
