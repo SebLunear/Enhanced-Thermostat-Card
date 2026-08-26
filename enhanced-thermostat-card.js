@@ -4,7 +4,7 @@ class EnhancedThermostatCard extends HTMLElement {
       throw new Error("Il faut définir 'entity' (climate.xxx)");
     }
     this._config = config;
-    this._step = Number(config.step) || 0.5;
+    this._step = config.step || 0.5;
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
       this._buildStaticDom();
@@ -123,23 +123,6 @@ class EnhancedThermostatCard extends HTMLElement {
         .dial-current-suffix .dial-current-dec { font-size: 0.5em; margin-top: 0.1em; }
         .dial-target { font-size: clamp(0.6rem, 7cqw, 0.9rem); font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
         .dial-target ha-icon { width: 1em; height: 1em; }
-        .dial-controls {
-          display: flex;
-          justify-content: center;
-          gap: 16px;
-          margin-top: 4px;
-          position: relative;
-          z-index: 1;
-        }
-        .dial-controls button {
-          width: 48px; height: 48px; border-radius: 50%;
-          border: 2px solid var(--divider-color);
-          background: transparent;
-          color: var(--primary-text-color);
-          font-size: 1.3rem;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
         .extra-row {
           display: flex;
           flex-direction: column;
@@ -200,10 +183,6 @@ class EnhancedThermostatCard extends HTMLElement {
             </div>
           </div>
         </div>
-        <div class="dial-controls">
-          <button class="minus">−</button>
-          <button class="plus">+</button>
-        </div>
         <div class="extra-row">
           <div class="extra-item door-item">
             <ha-icon class="door-icon" icon="mdi:door-closed"></ha-icon>
@@ -245,8 +224,6 @@ class EnhancedThermostatCard extends HTMLElement {
     this.shadowRoot.querySelector(".dehumidifier-item").addEventListener("click", () =>
       this._toggleDehumidifier()
     );
-    this.shadowRoot.querySelector(".minus").addEventListener("click", () => this._setTemp(-this._step));
-    this.shadowRoot.querySelector(".plus").addEventListener("click", () => this._setTemp(this._step));
   }
 
   _fireMoreInfo(entityId) {
@@ -262,26 +239,6 @@ class EnhancedThermostatCard extends HTMLElement {
     if (!entityId || !this._hass) return;
     const domain = entityId.split(".")[0];
     this._hass.callService(domain, "toggle", { entity_id: entityId });
-  }
-
-  _setTemp(delta) {
-    const stateObj = this._hass?.states[this._config.entity];
-    if (!stateObj) return;
-
-    const current = Number(stateObj.attributes.temperature);
-    const min = Number(stateObj.attributes.min_temp ?? 7);
-    const max = Number(stateObj.attributes.max_temp ?? 35);
-    const step = Number(this._step) || 0.5;
-    if (!Number.isFinite(current)) return;
-
-    const next = Math.min(
-      max,
-      Math.max(min, Math.round((current + Number(delta)) / step) * step)
-    );
-    this._hass.callService("climate", "set_temperature", {
-      entity_id: this._config.entity,
-      temperature: next,
-    });
   }
 
   // Clic sur l'anneau : convertit la position du clic en température,
@@ -396,7 +353,6 @@ class EnhancedThermostatCard extends HTMLElement {
     targetEl.style.display = isOff ? "none" : "flex";
     targetEl.textContent = targetTemp !== undefined ? `${this._fmt(targetTemp)} °C` : "";
     targetEl.style.color = isOff ? "var(--secondary-text-color)" : meta.color;
-    root.querySelector(".dial-controls").style.display = isOff ? "none" : "flex";
 
     const fg = root.querySelector(".dial-fg");
     fg.style.stroke = hvacMode === "off" ? "var(--disabled-text-color)" : meta.color;
