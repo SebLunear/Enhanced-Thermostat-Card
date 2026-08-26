@@ -35,7 +35,6 @@ class EnhancedThermostatCard extends HTMLElement {
       entities: [{ entity: this._config.entity }],
       grid_options: { columns: 6, rows: 2 },
     });
-    this._climateHistoryCard.hass = this._hass;
     container.appendChild(this._climateHistoryCard);
 
     if (this._config.dehumidifier_entity) {
@@ -45,9 +44,16 @@ class EnhancedThermostatCard extends HTMLElement {
         entities: [{ entity: this._config.dehumidifier_entity }],
         grid_options: { columns: 6, rows: 2 },
       });
-      this._dehumidifierHistoryCard.hass = this._hass;
       container.appendChild(this._dehumidifierHistoryCard);
     }
+
+    // Le graphique interne mesure sa largeur au moment où il est connecté
+    // au DOM ; si le calcul se fait avant que la mise en page ne soit
+    // stabilisée, il reste vide. On force un second passage juste après.
+    requestAnimationFrame(() => {
+      if (this._climateHistoryCard) this._climateHistoryCard.hass = this._hass;
+      if (this._dehumidifierHistoryCard) this._dehumidifierHistoryCard.hass = this._hass;
+    });
   }
 
   getCardSize() {
@@ -87,7 +93,6 @@ class EnhancedThermostatCard extends HTMLElement {
           position: relative;
           display: flex;
           justify-content: center;
-          padding-right: 36px;
           box-sizing: border-box;
           gap: 8px;
           font-size: 1.15rem;
@@ -110,17 +115,20 @@ class EnhancedThermostatCard extends HTMLElement {
           cursor: pointer;
         }
         .dial-wrap {
-          display: flex;
-          justify-content: center;
+          position: relative;
+          width: 100%;
           margin: -8px -16px;
           box-sizing: border-box;
         }
+        .dial-wrap::before {
+          content: "";
+          display: block;
+          padding-top: 100%;
+        }
         .dial {
           container-type: inline-size;
-          position: relative;
-          width: 100%;
-          max-width: 400px;
-          aspect-ratio: 1 / 1;
+          position: absolute;
+          inset: 0;
           margin: 0 auto;
           cursor: pointer;
         }
