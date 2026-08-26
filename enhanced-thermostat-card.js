@@ -4,7 +4,7 @@ class EnhancedThermostatCard extends HTMLElement {
       throw new Error("Il faut définir 'entity' (climate.xxx)");
     }
     this._config = config;
-    this._step = config.step || 0.5;
+    this._step = Number(config.step) || 0.5;
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
       this._buildStaticDom();
@@ -265,13 +265,19 @@ class EnhancedThermostatCard extends HTMLElement {
   }
 
   _setTemp(delta) {
-    const stateObj = this._hass.states[this._config.entity];
+    const stateObj = this._hass?.states[this._config.entity];
     if (!stateObj) return;
-    const current = stateObj.attributes.temperature;
-    if (current === undefined) return;
-    const min = stateObj.attributes.min_temp ?? 7;
-    const max = stateObj.attributes.max_temp ?? 35;
-    const next = Math.min(max, Math.max(min, Math.round((current + delta) * 2) / 2));
+
+    const current = Number(stateObj.attributes.temperature);
+    const min = Number(stateObj.attributes.min_temp ?? 7);
+    const max = Number(stateObj.attributes.max_temp ?? 35);
+    const step = Number(this._step) || 0.5;
+    if (!Number.isFinite(current)) return;
+
+    const next = Math.min(
+      max,
+      Math.max(min, Math.round((current + Number(delta)) / step) * step)
+    );
     this._hass.callService("climate", "set_temperature", {
       entity_id: this._config.entity,
       temperature: next,
