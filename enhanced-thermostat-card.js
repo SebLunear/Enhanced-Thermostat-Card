@@ -183,6 +183,7 @@ class EnhancedThermostatCard extends HTMLElement {
             </div>
           </div>
         </div>
+        <div class="modes"></div>
         <div class="extra-row">
           <div class="extra-item door-item">
             <ha-icon class="door-icon" icon="mdi:door-closed"></ha-icon>
@@ -201,7 +202,6 @@ class EnhancedThermostatCard extends HTMLElement {
             <span class="dehumidifier-label"></span>
           </div>
         </div>
-        <div class="modes"></div>
         </div>
       </ha-card>
     `;
