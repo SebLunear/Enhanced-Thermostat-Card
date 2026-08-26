@@ -13,47 +13,7 @@ class EnhancedThermostatCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (this._climateHistoryCard) this._climateHistoryCard.hass = hass;
-    if (this._dehumidifierHistoryCard) this._dehumidifierHistoryCard.hass = hass;
     this._render();
-    this._ensureHistoryCards();
-  }
-
-  async _ensureHistoryCards() {
-    if (this._historyCardsRequested) return;
-    if (this._config.show_history === false) return;
-    if (!window.loadCardHelpers) return;
-    this._historyCardsRequested = true;
-
-    const helpers = await window.loadCardHelpers();
-    const container = this.shadowRoot.querySelector(".history-section");
-    if (!container) return;
-
-    this._climateHistoryCard = helpers.createCardElement({
-      type: "history-graph",
-      show_names: false,
-      entities: [{ entity: this._config.entity }],
-      grid_options: { columns: 6, rows: 2 },
-    });
-    container.appendChild(this._climateHistoryCard);
-
-    if (this._config.dehumidifier_entity) {
-      this._dehumidifierHistoryCard = helpers.createCardElement({
-        type: "history-graph",
-        show_names: false,
-        entities: [{ entity: this._config.dehumidifier_entity }],
-        grid_options: { columns: 6, rows: 2 },
-      });
-      container.appendChild(this._dehumidifierHistoryCard);
-    }
-
-    // Le graphique interne mesure sa largeur au moment où il est connecté
-    // au DOM ; si le calcul se fait avant que la mise en page ne soit
-    // stabilisée, il reste vide. On force un second passage juste après.
-    requestAnimationFrame(() => {
-      if (this._climateHistoryCard) this._climateHistoryCard.hass = this._hass;
-      if (this._dehumidifierHistoryCard) this._dehumidifierHistoryCard.hass = this._hass;
-    });
   }
 
   getCardSize() {
@@ -106,8 +66,9 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .header ha-icon-button {
           position: absolute;
-          top: 0;
+          top: 50%;
           right: 0;
+          transform: translateY(-50%);
           width: 32px;
           height: 32px;
           --mdc-icon-button-size: 32px;
@@ -116,9 +77,7 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .dial-wrap {
           position: relative;
-          width: 100%;
           margin: -8px -16px;
-          box-sizing: border-box;
         }
         .dial-wrap::before {
           content: "";
@@ -217,11 +176,6 @@ class EnhancedThermostatCard extends HTMLElement {
         }
         .mode-btn ha-icon { flex-shrink: 0; }
         .mode-btn.selected { color: white; }
-        .history-section {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
       </style>
       <ha-card>
         <div class="panel">
@@ -268,7 +222,6 @@ class EnhancedThermostatCard extends HTMLElement {
         </div>
         <div class="modes"></div>
         </div>
-        <div class="history-section"></div>
       </ha-card>
     `;
 
@@ -536,7 +489,6 @@ class EnhancedThermostatCardEditor extends HTMLElement {
       { name: "humidity_entity", selector: { entity: { domain: "sensor" } } },
       { name: "dehumidifier_entity", selector: { entity: { domain: ["switch", "humidifier"] } } },
       { name: "step", selector: { number: { min: 0.5, max: 5, step: 0.5, mode: "box" } } },
-      { name: "show_history", selector: { boolean: {} } },
       { name: "min_height", selector: { number: { min: 300, max: 1200, step: 10, mode: "box" } } },
     ];
   }
@@ -567,7 +519,6 @@ class EnhancedThermostatCardEditor extends HTMLElement {
         humidity_entity: "Entité humidité",
         dehumidifier_entity: "Entité déshumidificateur",
         step: "Pas de température (°C)",
-        show_history: "Afficher les graphiques d'historique",
         min_height: "Hauteur minimale de la carte (px)",
       };
       return labels[schema.name] || schema.name;
