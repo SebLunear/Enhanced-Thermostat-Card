@@ -17,7 +17,7 @@ class EnhancedThermostatCard extends HTMLElement {
   }
 
   getCardSize() {
-    const minHeight = (this._config && this._config.min_height) || 700;
+    const minHeight = (this._config && this._config.min_height) || 520;
     return Math.ceil(minHeight / 50);
   }
 
@@ -127,7 +127,9 @@ class EnhancedThermostatCard extends HTMLElement {
           display: flex;
           justify-content: center;
           gap: 16px;
-          margin-top: -16px;
+          margin-top: 4px;
+          position: relative;
+          z-index: 1;
         }
         .dial-controls button {
           width: 48px; height: 48px; border-radius: 50%;
@@ -357,7 +359,7 @@ class EnhancedThermostatCard extends HTMLElement {
   _render() {
     if (!this._hass || !this._config) return;
     const root = this.shadowRoot;
-    root.querySelector("ha-card").style.minHeight = `${this._config.min_height || 700}px`;
+    root.querySelector("ha-card").style.minHeight = `${this._config.min_height || 520}px`;
     const stateObj = this._hass.states[this._config.entity];
     if (!stateObj) {
       root.querySelector(".name").textContent = "Entité introuvable";
